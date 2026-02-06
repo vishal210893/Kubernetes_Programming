@@ -84,6 +84,61 @@ Specify a custom kubeconfig:
 ./bin/at-client -kubeconfig /path/to/kubeconfig
 ```
 
+## Using the Makefile
+
+This project includes a comprehensive Makefile for common operations. View all available targets:
+
+```bash
+make help
+```
+
+### Common Commands
+
+**Development:**
+```bash
+make build           # Build the client binary
+make run             # Run the application
+make clean           # Clean build artifacts
+make fmt             # Format code
+make vet             # Run go vet
+make test            # Run tests
+make vendor          # Vendor dependencies
+```
+
+**Code Generation:**
+```bash
+make manifests       # Generate CRD manifests
+make generate        # Generate client code (deepcopy, clientset, listers, informers)
+make codegen         # Run all code generation (manifests + client code)
+```
+
+**Kubernetes Operations:**
+```bash
+make install-crd     # Install CRD to cluster
+make apply-cr        # Apply custom resources
+make get-ats         # List all At resources
+make describe-crd    # Describe the CRD
+make uninstall-crd   # Remove CRD from cluster
+make delete-cr       # Delete custom resources
+```
+
+**Workflow Shortcuts:**
+```bash
+make all             # Clean, vendor, generate code, and build
+make deploy          # Generate manifests, install CRD, and apply CR
+make undeploy        # Delete CR and uninstall CRD
+make refresh         # Refresh deployment (undeploy then deploy)
+make setup           # Initial setup: vendor dependencies and check tools
+```
+
+**Git Operations:**
+```bash
+make git-status                        # Show git status
+make git-commit MSG="your message"     # Commit changes
+make git-push                          # Push to remote
+make git-sync MSG="your message"       # Commit and push
+```
+
 ## Code Generation
 
 This project uses Kubernetes code-generator to generate:
@@ -92,10 +147,24 @@ This project uses Kubernetes code-generator to generate:
 - Listers
 - Informers
 
+### Manual Code Generation
+
 To regenerate the client code after modifying the API types:
 
 ```bash
 ./hack/update-codegen.sh
+```
+
+Or use the Makefile:
+
+```bash
+make generate
+```
+
+To regenerate CRD manifests after modifying kubebuilder markers:
+
+```bash
+make manifests
 ```
 
 ## Project Structure

@@ -1,2 +1,10 @@
+# Binaries
 bin/
-bin/
+
+# IDE
+.idea/
+*.iml
+
+# Test binaries
+*.test
+*.out

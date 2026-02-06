@@ -20,6 +20,11 @@ type AtStatus struct {
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Schedule",type=string,JSONPath=`.spec.schedule`
+// +kubebuilder:printcolumn:name="Command",type=string,JSONPath=`.spec.command`
+// +kubebuilder:resource:shortName=at,categories={atsall}
 
 // At runs a command at a given schedule.
 type At struct {
@@ -31,6 +36,7 @@ type At struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // AtList contains a list of At
 type AtList struct {
