@@ -1,0 +1,49 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ats.cnat.programming-kubernetes.info
+spec:
+  group: cnat.programming-kubernetes.info
+  scope: Namespaced
+  names:
+    kind: At
+    plural: ats
+    singular: at
+    categories:
+      - atsall
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Schedule
+          type: string
+          description: The schedule time for the command
+          jsonPath: .spec.schedule
+        - name: Command
+          type: string
+          description: The command to execute
+          jsonPath: .spec.command
+        - name: Phase
+          type: string
+          description: The current phase of execution
+          jsonPath: .status.phase
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                schedule:
+                  type: string
+                command:
+                  type: string
+            status:
+              type: object
+              properties:
+                phase:
+                  type: string

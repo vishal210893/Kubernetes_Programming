@@ -1,0 +1,10 @@
+apiVersion: cnat.programming-kubernetes.info/v1alpha1
+kind: At
+metadata:
+  name: example-at-2
+spec:
+  schedule: "2026-02-08T10:30:00Z"
+  command: "echo Hello Kubernetes"
+status:
+  phase: "PENDING"
+
