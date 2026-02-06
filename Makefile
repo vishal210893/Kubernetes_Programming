@@ -112,43 +112,6 @@ deepcopy: ## Generate deepcopy code only
 codegen: generate manifests ## Run all code generation (client code + CRDs)
 	@echo "$(GREEN)All code generation complete$(NC)"
 
-##@ Kubernetes Operations
-
-.PHONY: install-crd
-install-crd: ## Install CRD to the cluster
-	@echo "$(GREEN)Installing CRD...$(NC)"
-	kubectl apply -f $(CRD_OUTPUT_DIR)/crd.yaml
-	@echo "$(GREEN)CRD installed$(NC)"
-
-.PHONY: uninstall-crd
-uninstall-crd: ## Uninstall CRD from the cluster
-	@echo "$(YELLOW)Uninstalling CRD...$(NC)"
-	kubectl delete -f $(CRD_OUTPUT_DIR)/crd.yaml --ignore-not-found=true
-	@echo "$(GREEN)CRD uninstalled$(NC)"
-
-.PHONY: apply-cr
-apply-cr: ## Apply custom resources
-	@echo "$(GREEN)Applying custom resources...$(NC)"
-	kubectl apply -f $(CRD_OUTPUT_DIR)/cr.yaml
-	@echo "$(GREEN)Custom resources applied$(NC)"
-
-.PHONY: delete-cr
-delete-cr: ## Delete custom resources
-	@echo "$(YELLOW)Deleting custom resources...$(NC)"
-	kubectl delete -f $(CRD_OUTPUT_DIR)/cr.yaml --ignore-not-found=true
-	kubectl delete -f $(CRD_OUTPUT_DIR)/cr2.yaml --ignore-not-found=true
-	@echo "$(GREEN)Custom resources deleted$(NC)"
-
-.PHONY: get-ats
-get-ats: ## List all At resources
-	@echo "$(GREEN)Listing At resources...$(NC)"
-	kubectl get ats -A
-
-.PHONY: describe-crd
-describe-crd: ## Describe the At CRD
-	@echo "$(GREEN)Describing CRD...$(NC)"
-	kubectl describe crd ats.cnat.programming-kubernetes.info
-
 ##@ Verification
 
 .PHONY: verify
@@ -188,30 +151,3 @@ undeploy: delete-cr uninstall-crd ## Delete CR and uninstall CRD
 
 .PHONY: refresh
 refresh: undeploy deploy ## Refresh deployment (undeploy then deploy)
-
-##@ Git Operations
-
-.PHONY: git-status
-git-status: ## Show git status
-	@git status
-
-.PHONY: git-commit
-git-commit: ## Commit changes with message (usage: make git-commit MSG="your message")
-	@if [ -z "$(MSG)" ]; then \
-		echo "$(RED)Error: MSG is required. Usage: make git-commit MSG=\"your message\"$(NC)"; \
-		exit 1; \
-	fi
-	@git add .
-	@git commit -m "$(MSG)"
-	@echo "$(GREEN)Changes committed$(NC)"
-
-.PHONY: git-push
-git-push: ## Push to remote
-	@git push
-	@echo "$(GREEN)Pushed to remote$(NC)"
-
-.PHONY: git-sync
-git-sync: ## Commit and push changes (usage: make git-sync MSG="your message")
-	@$(MAKE) git-commit MSG="$(MSG)"
-	@$(MAKE) git-push
-
