@@ -2,6 +2,18 @@
 
 This project demonstrates how to create a Kubernetes Custom Resource Definition (CRD) and a client application to interact with custom resources.
 
+## 📚 Documentation
+
+This project includes comprehensive documentation about **runtime.Object** implementation in Kubernetes:
+
+**→ [START HERE](START_HERE.md)** - Choose your learning path and find what you need
+
+### Quick Links
+- **[Detailed Guide](pkg/apis/cnat/v1alpha1/RUNTIME_OBJECT_EXPLAINED.md)** - Deep understanding
+- **[Visual Flows](pkg/apis/cnat/v1alpha1/RUNTIME_OBJECT_FLOW.md)** - Diagrams and flows
+
+All code files include comprehensive inline comments explaining the "why" behind runtime.Object.
+
 ## Custom Resource: At
 
 The `At` custom resource allows you to schedule commands to run at specific times.

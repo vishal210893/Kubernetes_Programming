@@ -358,6 +358,8 @@ k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
 k8s.io/client-go/features
 k8s.io/client-go/gentype
+k8s.io/client-go/informers/core/v1
+k8s.io/client-go/informers/internalinterfaces
 k8s.io/client-go/kubernetes
 k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/kubernetes/typed/admissionregistration/v1
@@ -416,6 +418,7 @@ k8s.io/client-go/kubernetes/typed/storage/v1alpha1
 k8s.io/client-go/kubernetes/typed/storage/v1beta1
 k8s.io/client-go/kubernetes/typed/storagemigration/v1beta1
 k8s.io/client-go/listers
+k8s.io/client-go/listers/core/v1
 k8s.io/client-go/openapi
 k8s.io/client-go/pkg/apis/clientauthentication
 k8s.io/client-go/pkg/apis/clientauthentication/install
@@ -433,8 +436,11 @@ k8s.io/client-go/tools/clientcmd
 k8s.io/client-go/tools/clientcmd/api
 k8s.io/client-go/tools/clientcmd/api/latest
 k8s.io/client-go/tools/clientcmd/api/v1
+k8s.io/client-go/tools/internal/events
 k8s.io/client-go/tools/metrics
 k8s.io/client-go/tools/pager
+k8s.io/client-go/tools/record
+k8s.io/client-go/tools/record/util
 k8s.io/client-go/tools/reference
 k8s.io/client-go/transport
 k8s.io/client-go/util/apply
@@ -520,7 +526,9 @@ k8s.io/kube-openapi/pkg/validation/spec
 ## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
+k8s.io/utils/internal/third_party/forked/golang/golang-lru
 k8s.io/utils/internal/third_party/forked/golang/net
+k8s.io/utils/lru
 k8s.io/utils/net
 k8s.io/utils/ptr
 k8s.io/utils/trace

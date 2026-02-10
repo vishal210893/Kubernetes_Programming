@@ -2,6 +2,12 @@ package v1alpha1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+const (
+	PhasePending = "PENDING"
+	PhaseRunning = "RUNNING"
+	PhaseDone    = "DONE"
+)
+
 // AtSpec defines the desired state of At
 type AtSpec struct {
 	// Schedule is the desired time the command is supposed to be executed.
