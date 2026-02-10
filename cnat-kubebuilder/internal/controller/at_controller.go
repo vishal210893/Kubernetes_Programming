@@ -46,15 +46,34 @@ type AtReconciler struct {
 // +kubebuilder:rbac:groups=cnat.programming-kubernetes.info,resources=ats/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=cnat.programming-kubernetes.info,resources=ats/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the At object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
+// Reconcile is the CORE of the controller - it's called automatically by Kubernetes whenever:
+// 1. An At resource is created, updated, or deleted
+// 2. A Pod owned by an At resource changes (due to SetupWithManager's For/Owns)
+// 3. The RequeueAfter duration expires (if we return one)
+// 4. Manual requeue is triggered
 //
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.20.2/pkg/reconcile
+// RECONCILE PRINCIPLE:
+// - Input: Request (namespace + name of the resource that changed)
+// - Output: (Result, error) - tells k8s WHEN to call Reconcile again
+// - Goal: Make actual state match desired state (spec -> status)
+//
+// RETURN VALUES EXPLAINED:
+//
+//  1. reconcile.Result{}, nil
+//     → Success! Don't requeue. Will reconcile again only if resource changes.
+//
+//  2. reconcile.Result{}, err
+//     → Error! Requeue with exponential backoff (1s, 2s, 4s, 8s... up to 5min)
+//
+//  3. reconcile.Result{Requeue: true}, nil
+//     → Success, but requeue immediately (rarely used)
+//
+//  4. reconcile.Result{RequeueAfter: duration}, nil
+//     → Success! Call Reconcile again after specified duration
+//     → Used for time-based operations (like our scheduled command)
+//
+//  5. reconcile.Result{RequeueAfter: duration}, err
+//     → Error wins! Ignores RequeueAfter, uses error backoff
 func (r *AtReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	reqLogger := log.FromContext(ctx).WithValues("namespace", req.Namespace, "at", req.Name)
 	reqLogger.Info("=== Reconciling At")
@@ -74,77 +93,111 @@ func (r *AtReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Re
 	if instance.Status.Phase == "" {
 		instance.Status.Phase = cnatv1alpha1.PhasePending
 	}
-	// Now let's make the main case distinction: implementing
-	// the state diagram PENDING -> RUNNING -> DONE
+	// STATE MACHINE: PENDING -> RUNNING -> DONE
+	// Each reconcile call processes current phase and potentially transitions to next
 	switch instance.Status.Phase {
 	case cnatv1alpha1.PhasePending:
 		reqLogger.Info("Phase: PENDING")
-		// As long as we haven't executed the command yet, we need to check if
-		// it's already time to act:
+		// PENDING: Resource created but scheduled time hasn't arrived yet
 		reqLogger.Info("Checking schedule", "Target", instance.Spec.Schedule)
-		// Check if it's already time to execute the command with a tolerance
-		// of 2 seconds:
+
+		// Calculate how long until the scheduled time
 		d, err := timeUntilSchedule(instance.Spec.Schedule)
 		if err != nil {
 			reqLogger.Error(err, "Schedule parsing failure")
-			// Error reading the schedule. Wait until it is fixed.
+			// RETURN: reconcile.Result{}, err
+			// → Requeue with exponential backoff until user fixes the schedule
 			return reconcile.Result{}, err
 		}
 		reqLogger.Info("Schedule parsing done", "diff", fmt.Sprintf("%v", d))
+
 		if d > 0 {
-			// Not yet time to execute the command, wait until the scheduled time
+			// Schedule is in the future (e.g., 5 minutes from now)
+			// RETURN: reconcile.Result{RequeueAfter: d}, nil
+			// → Sleep for exactly 'd' duration, then Reconcile will run again
+			// → This is EFFICIENT - we don't poll, Kubernetes wakes us up at the right time
+			reqLogger.Info("Scheduling reconcile", "after", d)
 			return reconcile.Result{RequeueAfter: d}, nil
 		}
+
+		// Time has arrived! Transition to RUNNING phase
 		reqLogger.Info("It's time!", "Ready to execute", instance.Spec.Command)
 		instance.Status.Phase = cnatv1alpha1.PhaseRunning
+		// Note: We DON'T return here - we fall through to update status at the end
 	case cnatv1alpha1.PhaseRunning:
 		reqLogger.Info("Phase: RUNNING")
+		// RUNNING: We need to create a Pod to execute the command
+
 		pod := newPodForCR(instance)
-		// Set At instance as the owner and controller
+		// Set At instance as the owner - when At is deleted, Pod is auto-deleted (Garbage Collection)
 		err := controllerutil.SetControllerReference(instance, pod, r.Scheme)
 		if err != nil {
-			// requeue with error
+			// RETURN: reconcile.Result{}, err
+			// → Requeue with backoff due to error
 			return reconcile.Result{}, err
 		}
+
+		// Check if the pod already exists
 		found := &corev1.Pod{}
 		nsName := types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}
 		err = r.Get(context.TODO(), nsName, found)
-		// Try to see if the pod already exists and if not
-		// (which we expect) then create a one-shot pod as per spec:
+
 		if err != nil && errors.IsNotFound(err) {
+			// Pod doesn't exist yet - create it!
 			err = r.Create(context.TODO(), pod)
 			if err != nil {
-				// requeue with error
+				// RETURN: reconcile.Result{}, err
+				// → Creation failed, requeue with backoff
 				return reconcile.Result{}, err
 			}
 			reqLogger.Info("Pod launched", "name", pod.Name)
+			// RETURN: reconcile.Result{}, nil (falls through at end)
+			// → Pod created successfully
+			// → Reconcile will run again when Pod status changes (due to SetupWithManager)
 		} else if err != nil {
-			// requeue with error
+			// RETURN: reconcile.Result{}, err
+			// → Error getting pod, requeue with backoff
 			return reconcile.Result{}, err
 		} else if found.Status.Phase == corev1.PodFailed ||
 			found.Status.Phase == corev1.PodSucceeded {
+			// Pod finished executing! Transition to DONE
 			reqLogger.Info("Container terminated", "reason",
 				found.Status.Reason, "message", found.Status.Message)
 			instance.Status.Phase = cnatv1alpha1.PhaseDone
+			// Note: We DON'T return here - we fall through to update status at the end
 		} else {
-			// Don't requeue because it will happen automatically when the
-			// pod status changes.
+			// Pod is still running (Pending/Running phase)
+			// RETURN: reconcile.Result{}, nil
+			// → Don't requeue manually
+			// → Kubernetes will automatically call Reconcile when Pod status changes
+			//   (because we set owner reference and watch Pods in SetupWithManager)
+			reqLogger.Info("Pod still running", "phase", found.Status.Phase)
 			return reconcile.Result{}, nil
 		}
 	case cnatv1alpha1.PhaseDone:
 		reqLogger.Info("Phase: DONE")
+		// DONE: Command executed, nothing more to do
+		// RETURN: reconcile.Result{}, nil
+		// → Success, don't requeue
+		// → Will only reconcile if someone manually edits the resource
 		return reconcile.Result{}, nil
 	default:
 		reqLogger.Info("NOP")
 		return reconcile.Result{}, nil
 	}
-	// Update the At instance, setting the status to the respective phase:
+
+	// Update the At instance status in Kubernetes
+	// This is called when we transition phases (PENDING→RUNNING or RUNNING→DONE)
 	err = r.Status().Update(context.TODO(), instance)
 	if err != nil {
+		// RETURN: reconcile.Result{}, err
+		// → Status update failed, requeue with backoff
 		return reconcile.Result{}, err
 	}
-	// Don't requeue. We should be reconcile because either the pod
-	// or the CR changes.
+
+	// RETURN: reconcile.Result{}, nil
+	// → Status updated successfully
+	// → Don't requeue - wait for next event (Pod change or manual edit)
 	return reconcile.Result{}, nil
 }
 
